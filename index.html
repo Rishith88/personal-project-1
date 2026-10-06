@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quick Thing</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #667eea;
+    overflow: hidden;
+    padding: 20px;
+  }
+  .bg-layer {
+    position: fixed; inset: 0; z-index: 0;
+    transition: opacity 1.8s ease;
+    pointer-events: none;
+  }
+  #bg1 { opacity: 1; background: linear-gradient(135deg, #667eea, #764ba2); }
+  #bg2 { opacity: 0; background: linear-gradient(135deg, #667eea, #764ba2); }
+  .heart-bg {
+    position: fixed; top: -20px; user-select: none; pointer-events: none;
+    animation: fall linear forwards; z-index: 1; opacity: 0.6;
+  }
+  @keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
+  .card {
+    position: relative; z-index: 10;
+    background: white; border-radius: 28px; padding: 40px 32px;
+    max-width: 500px; width: 100%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+  .gif { font-size: 72px; line-height: 1; }
+  h1 { font-size: clamp(1.6rem, 6vw, 2.3rem); color: #333; margin: 16px 0 8px; transition: color 1.5s ease; font-weight: 800; }
+  h1.romantic { color: #d6336c; }
+  #plea { font-size: 1.15rem; color: #555; font-weight: 600; margin-bottom: 24px; min-height: 32px; }
+  .sub { color:#555; font-size:1.1rem; line-height:1.6; }
+  .btn-row { display: flex; gap: 16px; justify-content: center; align-items: center; min-height: 80px; flex-wrap: wrap; margin-top: 10px; }
+  button { border: none; cursor: pointer; font-weight: 700; border-radius: 999px; font-size: 1.15rem; transition: transform 0.2s ease, background 1.5s ease, box-shadow 1.5s ease; }
+  #yesBtn { background: linear-gradient(135deg, #ff4d6d, #ff758f); color: white; padding: 16px 44px; box-shadow: 0 8px 20px rgba(255,77,109,0.4); }
+  #yesBtn:hover { transform: scale(1.04); }
+  #noBtn { background: #e9ecef; color: #495057; padding: 16px 36px; position: static; }
+  #noBtn.escaped {
+    position: fixed; z-index: 50; margin: 0;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    transition: left 0.45s cubic-bezier(0.22,1,0.36,1), top 0.45s cubic-bezier(0.22,1,0.36,1), transform 0.2s;
+    will-change: left, top;
+  }
+  .counter { margin-top: 20px; font-size: 0.85rem; color: #adb5bd; }
+  #askScreen, #confessionScreen, #yesScreen, #noScreen, #dateScreen, #doneScreen { display: none; }
+  #nameScreen { display: block; }
+  .name-input { width: 100%; padding: 15px 20px; font-size: 1.1rem; border: 2px solid #e0e0e0; border-radius: 999px; outline: none; text-align: center; margin: 16px 0; }
+  .name-input:focus { border-color: #667eea; }
+  .continue-btn { color: white; padding: 14px 44px; background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 8px 20px rgba(102,126,234,0.35); }
+  .continue-btn:hover { transform: scale(1.03); }
+  .tiny-note { margin-top: 14px; font-size: 0.9rem; color: #999; }
+  .dots { margin-top: 16px; font-size: 0.8rem; color: #ccc; letter-spacing: 5px; }
+  .story-bars { display: flex; gap: 6px; margin-bottom: 18px; }
+  .story-bar { flex: 1; height: 4px; background: rgba(0,0,0,0.12); border-radius: 99px; overflow: hidden; }
+  .story-fill { height: 100%; width: 0%; background: #333; border-radius: 99px; }
+  .story-bar.done .story-fill { width: 100%; }
+  .story-bar.active .story-fill { transition: width linear; }
+  #confessionScreen { cursor: pointer; user-select: none; }
+  #confText { transition: opacity 0.35s ease, transform 0.35s ease; }
+  #confText.out { opacity: 0; transform: translateY(10px); }
+  .heart-bg {
+    position: fixed; top: -24px; user-select: none; pointer-events: none;
+    z-index: 1; opacity: 0.85; animation: fall linear forwards;
+  }
+  @keyframes fall { to { transform: translateY(112vh) rotate(30deg); } }
+  .big-heart { font-size: 84px; }
+  .love-letter { background: #fff5f7; border-radius: 16px; padding: 16px; margin: 16px 0; color: #5a2233; line-height: 1.6; font-size: 1.05rem; }
+  .restart { margin-top: 16px; background: none; color: #aaa; font-size: 0.9rem; font-weight: 400; text-decoration: underline; }
+  canvas#confetti { position: fixed; inset: 0; pointer-events: none; z-index: 100; }
+  .fade { animation: fadeIn 0.6s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div class="bg-layer" id="bg1"></div>
+<div class="bg-layer" id="bg2"></div>
+<canvas id="confetti"></canvas>
+<div class="card" id="mainCard">
+  <div id="nameScreen">
+    <h1>Hey, quick thing</h1>
+    <p class="sub">What's your full name?</p>
+    <input id="fullNameInput" class="name-input" type="text" placeholder="Type your full name..." autocomplete="off" maxlength="40" />
+    <div class="btn-row">
+      <button id="nameContinueBtn" class="continue-btn">Continue</button>
+    </div>
+    <div class="tiny-note">see till the end</div>
+  </div>
+
+  <div id="confessionScreen">
+    <div class="story-bars" id="storyBars"></div>
+    <h1 id="confTitle">Okay</h1>
+    <p class="sub" id="confText" style="min-height:120px;font-size:1.15rem;line-height:1.7;"></p>
+    <div class="tiny-note" id="tapHint">tap to continue</div>
+  </div>
+
+  <div id="askScreen">
+    <h1 id="dateQuestion" class="romantic">Will you date me?</h1>
+    <p id="plea">Choose wisely.</p>
+    <div class="btn-row">
+      <button id="yesBtn">Yes</button>
+      <button id="noBtn">No</button>
+    </div>
+    <div class="counter" id="counter"></div>
+  </div>
+
+  <div id="yesScreen">
+    <h1 id="yesTitle" class="romantic">Good choice.</h1>
+    <div class="love-letter">
+      I knew you'd say yes.<br>
+      I like you, and I know we'd be good together.
+    </div>
+    <div class="btn-row">
+      <button id="planDateBtn" class="continue-btn" style="background:linear-gradient(135deg,#ff4d6d,#ff758f);box-shadow:0 8px 20px rgba(255,77,109,0.4);">Plan our date →</button>
+    </div>
+    <button class="restart" onclick="location.reload()">replay</button>
+  </div>
+
+  <div id="dateScreen">
+    <h1 class="romantic">Our first date</h1>
+    <p class="sub" id="dateSub">Pick a day, time and place — your call.</p>
+    <div style="text-align:left;margin-top:18px;display:grid;gap:14px;">
+      <label style="font-weight:700;color:#333;">Date
+        <input id="dateInput" type="date" class="name-input" style="margin:8px 0 0;" />
+      </label>
+      <label style="font-weight:700;color:#333;">Time
+        <input id="timeInput" type="time" class="name-input" style="margin:8px 0 0;" />
+      </label>
+      <label style="font-weight:700;color:#333;">Where to?
+        <input id="placeInput" type="text" class="name-input" style="margin:8px 0 0;" placeholder="e.g. cafe, movies, park..." maxlength="80" />
+      </label>
+    </div>
+    <p id="dateError" style="color:#e63946;font-size:0.95rem;min-height:22px;margin-top:8px;"></p>
+    <div class="btn-row">
+      <button id="lockDateBtn" class="continue-btn" style="background:linear-gradient(135deg,#ff4d6d,#ff758f);box-shadow:0 8px 20px rgba(255,77,109,0.4);">Lock it in ❤️</button>
+    </div>
+    <button id="skipDateBtn" class="restart" style="margin-top:4px;">skip for now →</button>
+  </div>
+
+  <div id="doneScreen" style="display:none;">
+    <h1 class="romantic">It's a date.</h1>
+    <div class="love-letter" id="doneText"></div>
+    <p class="sub">I've got the details. See you then.</p>
+  </div>
+
+  <div id="noScreen">
+    <h1 style="color:#333">Alright, I respect that.</h1>
+    <p style="margin:12px 0; color:#555">If you ever change your mind, you know where I am.</p>
+    <div class="btn-row">
+      <button id="yesBtn2" style="background:linear-gradient(135deg,#ff4d6d,#ff758f);color:white;padding:14px 36px;">Actually, yes</button>
+    </div>
+    <button class="restart" onclick="location.reload()">start over</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  let firstName = "";
+  let romanticMode = false;
+
+  const nameScreen = document.getElementById('nameScreen');
+  const confessionScreen = document.getElementById('confessionScreen');
+  const askScreen = document.getElementById('askScreen');
+  const fullNameInput = document.getElementById('fullNameInput');
+
+  const confTitle = document.getElementById('confTitle');
+  const confText = document.getElementById('confText');
+  const storyBars = document.getElementById('storyBars');
+  let storyTimer = null;
+  const SLIDE_MS = 4200;
+
+  const bg1 = document.getElementById('bg1');
+  const bg2 = document.getElementById('bg2');
+  let showingBg1 = true;
+
+  // smooth gradient stages — crossfaded, zero jumps
+  const bgStages = [
+    "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    "linear-gradient(135deg, #6777d2 0%, #785fa9 100%)",
+    "linear-gradient(135deg, #6c70cb 0%, #7f5ca7 100%)",
+    "linear-gradient(135deg, #7368c3 0%, #885aa4 100%)",
+    "linear-gradient(135deg, #7e63bd 0%, #9c5aa0 100%)",
+    "linear-gradient(135deg, #8f609f 0%, #ad5f9a 100%)",
+    "linear-gradient(135deg, #9a5f9e 0%, #c06a8f 100%)",
+    "linear-gradient(135deg, #ac6197 0%, #d16f90 100%)",
+    "linear-gradient(135deg, #c86692 0%, #e87a90 100%)",
+    "linear-gradient(135deg, #e56d8d 0%, #f48396 100%)",
+    "linear-gradient(135deg, #f26985 0%, #f78d9c 100%)",
+    "linear-gradient(135deg, #ff6b81 0%, #ff8e9e 45%, #c084b8 100%)"
+  ];
+
+  function setThemeSmooth(i) {
+    i = Math.min(i, bgStages.length - 1);
+    const nextBg = showingBg1 ? bg2 : bg1;
+    const currBg = showingBg1 ? bg1 : bg2;
+    nextBg.style.background = bgStages[i];
+    nextBg.style.opacity = 1;
+    currBg.style.opacity = 0;
+    showingBg1 = !showingBg1;
+    if (i >= 4) confTitle.classList.add('romantic');
+  }
+
+  let confIndex = 0;
+  let confSteps = [];
+
+  function buildConfSteps() {
+    confSteps = [
+      { title: `Alright ${firstName}.`, text: `I made this for you.<br>See it till the end.` },
+      { title: "I wanted to ask you something.", text: `Remember the MUN?<br>I hope you do.` },
+      { title: "That's where I first met you.", text: `We sat beside each other.<br>I still remember it clearly.` },
+      { title: "Think about it.", text: `Even though we were apart,<br>every time we saw each other,<br>it felt familiar.` },
+      { title: "Every time I helped you,", text: `I barely even knew you then.<br>And yet, in just a few days,<br>we became such good friends.` },
+      { title: "We know a lot about each other now.", text: `More than most people do<br>in such a short time.` },
+      { title: "And listen.", text: `If you say no today, nothing changes.<br>Today, tomorrow — we remain friends.<br>You are you. I am me.` },
+      { title: "Doesn't that feel like destiny?", text: `I don't know about you,<br>but it does to me.` },
+      { title: "So I mustered up all my courage.", text: `To ask you this properly.<br>Whatever you decide, I respect it.` },
+      { title: "Nevermind the full name.", text: `I'll just call you <b>${firstName}</b>.` },
+    ];
+  }
+
+  fullNameInput.focus();
+  fullNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitName(); });
+  document.getElementById('nameContinueBtn').addEventListener('click', submitName);
+
+  function submitName() {
+    const full = fullNameInput.value.trim();
+    if (!full) {
+      fullNameInput.style.borderColor = '#ff4d6d';
+      fullNameInput.placeholder = 'Enter your name to continue';
+      fullNameInput.focus();
+      return;
+    }
+    firstName = full.split(/\s+/)[0];
+    firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1);
+    buildConfSteps();
+    buildStoryBars();
+    confIndex = 0;
+    nameScreen.style.display = 'none';
+    confessionScreen.style.display = 'block';
+    showConfStep();
+  }
+
+  function buildStoryBars() {
+    storyBars.innerHTML = '';
+    confSteps.forEach((_, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'story-bar';
+      bar.innerHTML = '<div class="story-fill"></div>';
+      storyBars.appendChild(bar);
+    });
+  }
+
+  function updateStoryBars() {
+    const bars = storyBars.children;
+    for (let i = 0; i < bars.length; i++) {
+      bars[i].classList.remove('active', 'done');
+      const fill = bars[i].querySelector('.story-fill');
+      fill.style.transition = 'none';
+      fill.style.width = i < confIndex ? '100%' : '0%';
+      if (i < confIndex) bars[i].classList.add('done');
+    }
+    const cur = bars[confIndex];
+    if (cur) {
+      cur.classList.add('active');
+      const fill = cur.querySelector('.story-fill');
+      // force reflow then animate like a video progress bar
+      void fill.offsetWidth;
+      fill.style.transition = `width ${SLIDE_MS}ms linear`;
+      fill.style.width = '100%';
+    }
+  }
+
+  function showConfStep() {
+    const s = confSteps[confIndex];
+    setThemeSmooth(confIndex + 1);
+    confTitle.textContent = s.title;
+    confText.innerHTML = s.text;
+    updateStoryBars();
+    clearTimeout(storyTimer);
+    storyTimer = setTimeout(nextConfStep, SLIDE_MS);
+  }
+
+  function nextConfStep() {
+    clearTimeout(storyTimer);
+    if (confIndex < confSteps.length - 1) {
+      confIndex++;
+      showConfStep();
+    } else {
+      goToQuestion();
+    }
+  }
+
+  function goToQuestion() {
+    clearTimeout(storyTimer);
+    confessionScreen.style.display = 'none';
+    askScreen.style.display = 'block';
+    setThemeSmooth(bgStages.length - 1);
+    document.title = "One Question";
+    romanticMode = true; // start hearts ONLY here — finale
+    // little welcome burst on the big question
+    try { confetti({ particleCount: 90, spread: 100, origin: { y: 0.6 }, colors: ['#ff4d6d','#ffc0cb','#ffffff'] }); } catch(e) {}
+    for (let i = 0; i < 10; i++) setTimeout(spawnHeart, i * 200);
+    document.getElementById('dateQuestion').textContent = `Will you date me, ${firstName}?`;
+    plea.textContent = "Choose wisely.";
+    stages[0].text = `Are you sure, ${firstName}?`;
+    stages[3].text = `${firstName}, we'd look good together. You know it.`;
+    stages[4].text = "I'm good in studies. I'm a good person. Simple.";
+  }
+
+  function spawnHeart() {
+    if (!romanticMode) return;
+    const h = document.createElement('div');
+    h.className = 'heart-bg';
+    const hearts = ['❤️','💖','💕','💗','🤍'];
+    h.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+    h.style.left = Math.random() * 100 + 'vw';
+    h.style.fontSize = (14 + Math.random() * 22) + 'px';
+    const dur = 3.5 + Math.random() * 3.5;
+    h.style.animationDuration = dur + 's';
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), dur * 1000);
+  }
+  setInterval(spawnHeart, 700);
+
+  // tap = skip forward like IG story / video
+  confessionScreen.addEventListener('click', nextConfStep);
+
+  const noBtn = document.getElementById('noBtn');
+  const yesBtn = document.getElementById('yesBtn');
+  const plea = document.getElementById('plea');
+  const counter = document.getElementById('counter');
+
+  let noCount = 0;
+  // Bold, not pleading — no emojis
+  const stages = [
+    { text: "Are you sure?", btnText: "No" },
+    { text: "That was your easy chance.", btnText: "Reject" },
+    { text: "We'd look good together. You know it.", btnText: "Reject" },
+    { text: "I'm good in studies. I'm a good person. Simple.", btnText: "Reject" },
+    { text: "Alright. You can reject if you want to.", btnText: "Reject" },
+  ];
+
+  function randomPos() {
+    const padding = 20;
+    const btnW = noBtn.offsetWidth || 120;
+    const btnH = noBtn.offsetHeight || 50;
+    const maxX = Math.max(padding, window.innerWidth - btnW - padding);
+    const maxY = Math.max(padding, window.innerHeight - btnH - padding);
+    return {
+      x: Math.max(padding, Math.random() * maxX),
+      y: Math.max(padding, Math.random() * maxY)
+    };
+  }
+
+  function moveNoButton() {
+    // First escape: pin it where it is, then glide away — no teleport
+    if (!noBtn.classList.contains('escaped')) {
+      const r = noBtn.getBoundingClientRect();
+      noBtn.classList.add('escaped');
+      noBtn.style.left = r.left + 'px';
+      noBtn.style.top = r.top + 'px';
+      // force reflow so transition kicks in
+      void noBtn.offsetWidth;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const p = randomPos();
+        noBtn.style.left = p.x + 'px';
+        noBtn.style.top = p.y + 'px';
+      }));
+    } else {
+      const p = randomPos();
+      noBtn.style.left = p.x + 'px';
+      noBtn.style.top = p.y + 'px';
+    }
+  }
+
+  function handleNoDodge(e) {
+    if (e) e.preventDefault();
+    if (noCount >= stages.length) { showNoScreen(); return; }
+    const stage = stages[noCount];
+    plea.textContent = stage.text;
+    noBtn.textContent = stage.btnText;
+    moveNoButton();
+    const scale = 1 + (noCount + 1) * 0.22;
+    yesBtn.style.transform = `scale(${scale})`;
+    noCount++;
+    counter.textContent = noCount >= stages.length ? "Your call." : "";
+  }
+
+  noBtn.addEventListener('mouseover', (e) => { if (noCount < stages.length) handleNoDodge(e); });
+  noBtn.addEventListener('touchstart', (e) => { if (noCount < stages.length) handleNoDodge(e); }, { passive: false });
+  noBtn.addEventListener('click', (e) => { handleNoDodge(e); });
+
+  function fireConfettiBig() {
+    try {
+      const end = Date.now() + 2800;
+      (function frame() {
+        confetti({ particleCount: 6, angle: 60, spread: 65, origin: { x: 0 }, colors: ['#ff4d6d','#ff758f','#ffc0cb','#ffffff','#ffd166'] });
+        confetti({ particleCount: 6, angle: 120, spread: 65, origin: { x: 1 }, colors: ['#ff4d6d','#ff758f','#ffc0cb','#ffffff','#ffd166'] });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+      setTimeout(() => confetti({ particleCount: 220, spread: 130, origin: { y: 0.6 }, colors: ['#ff4d6d','#ff758f','#ffc0cb','#ffffff','#ffd166'] }), 250);
+    } catch(e) {}
+  }
+
+  function showYesScreen() {
+    if (firstName) document.getElementById('yesTitle').textContent = `Good choice, ${firstName}.`;
+    askScreen.style.display = 'none';
+    document.getElementById('yesScreen').style.display = 'block';
+    noBtn.style.display = 'none';
+    fireConfettiBig();
+    // extra heart burst
+    for (let i = 0; i < 24; i++) setTimeout(spawnHeart, i * 120);
+    // No mail here — YES + date go together in ONE mail on Lock (see lockDateBtn)
+  }
+
+  function showNoScreen() {
+    askScreen.style.display = 'none';
+    document.getElementById('noScreen').style.display = 'block';
+    noBtn.style.display = 'none';
+    try { sendNoAlert(); } catch(e) {}
+  }
+
+  yesBtn.addEventListener('click', showYesScreen);
+  document.getElementById('yesBtn2').addEventListener('click', () => {
+    document.getElementById('noScreen').style.display = 'none';
+    document.getElementById('yesScreen').style.display = 'block';
+    if (firstName) document.getElementById('yesTitle').textContent = `Good choice, ${firstName}.`;
+    fireConfettiBig();
+    // No mail here — YES + date go together in ONE mail on Lock
+  });
+
+  // ---------- DATE PAGE + EMAILJS ----------
+  // Your inbox — all YES + date plans come here
+  const MY_EMAIL = "rishithmanchala989@gmail.com";
+
+  // Fill these in from https://www.emailjs.com (free) -> Account > General > Public Key
+  // + Email Services > Service ID + Email Templates > Template ID
+  const EMAILJS_PUBLIC_KEY = "sm8WFjdlhVyGWHs2A";
+  const EMAILJS_SERVICE_ID = "service_vbwiphn"; // you already have this
+  const EMAILJS_TEMPLATE_ID = "template_xj7rv1b";
+
+  let emailjsReady = false;
+  try {
+    if (typeof emailjs !== "undefined" && EMAILJS_PUBLIC_KEY && EMAILJS_PUBLIC_KEY !== "YOUR_EMAILJS_PUBLIC_KEY") {
+      emailjs.init(EMAILJS_PUBLIC_KEY);
+      emailjsReady = true;
+    }
+  } catch(e) { console.warn("EmailJS init failed:", e); }
+
+  // Single helper: tries EmailJS first, then FormSubmit ajax fallback (no key needed).
+  // Returns true if either succeeded.
+  async function notifyMe(subject, message, extraParams = {}) {
+    const params = {
+      to_email: MY_EMAIL,
+      reply_to: MY_EMAIL,
+      subject: subject,
+      girl_name: firstName || "her",
+      name: firstName || "her",
+      time: new Date().toLocaleString(),
+      message: message,
+      ...extraParams
+    };
+    // 1) EmailJS (primary)
+    if (emailjsReady) {
+      try {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, params);
+        console.log("Sent via EmailJS:", params);
+        return true;
+      } catch(e) {
+        console.warn("EmailJS send failed, trying fallback:", e);
+      }
+    } else {
+      console.log("EmailJS not configured yet. Would send:", params);
+    }
+    // 2) FormSubmit fallback — works without any key, delivers to MY_EMAIL
+    // Note: first ever mail needs one-time activation click sent to your inbox.
+    try {
+      const res = await fetch(`https://formsubmit.co/ajax/${MY_EMAIL}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({
+          name: `Proposal site — ${params.girl_name}`,
+          subject: subject,
+          message: message,
+          _subject: subject,
+          _template: "table",
+          ...extraParams
+        })
+      });
+      if (res.ok) {
+        console.log("Sent via FormSubmit fallback");
+        return true;
+      }
+    } catch(e) { console.warn("Fallback send failed:", e); }
+    return false;
+  }
+
+  // Combined YES + DATE in ONE mail — sent only on Lock (no separate Yes mail).
+  function sendYesAlert() {
+    // kept for reference, not used anymore
+    const subject = `She said YES! ${firstName || ""}`.trim();
+    const message = `${firstName || "She"} just clicked YES on your proposal site! (${new Date().toLocaleString()}).`;
+    notifyMe(subject, message, { event: "said_yes", girl_name: firstName || "her" });
+  }
+
+  function sendNoAlert() {
+    const subject = `She said NO (final) — ${firstName || ""}`.trim();
+    const message = `${firstName || "She"} just clicked through to NO / rejected on your proposal site. (${new Date().toLocaleString()}). After dodging ${typeof noCount !== "undefined" ? noCount : "?"} times, she landed on the respect screen.`;
+    notifyMe(subject, message, { event: "said_no", girl_name: firstName || "her" });
+  }
+
+  document.getElementById('planDateBtn').addEventListener('click', () => {
+    document.getElementById('yesScreen').style.display = 'none';
+    const ds = document.getElementById('dateScreen');
+    ds.style.display = 'block';
+    document.getElementById('dateSub').textContent = `${firstName}, pick a day, time and place — your call.`;
+    const d = document.getElementById('dateInput');
+    d.min = new Date().toISOString().split('T')[0];
+  });
+
+  document.getElementById('lockDateBtn').addEventListener('click', async () => {
+    const dateVal = document.getElementById('dateInput').value;
+    const timeVal = document.getElementById('timeInput').value;
+    const placeVal = document.getElementById('placeInput').value.trim();
+    const err = document.getElementById('dateError');
+    if (!dateVal || !timeVal || !placeVal) {
+      err.textContent = "Pick a date, time and place to lock it in.";
+      return;
+    }
+    err.textContent = "";
+    const btn = document.getElementById('lockDateBtn');
+    btn.textContent = "Locking it in...";
+    btn.disabled = true;
+
+    const subject = `She said YES! ${firstName} — ${dateVal} at ${timeVal}, ${placeVal}`;
+    const message = `She said YES!\n\n${firstName} accepted your proposal and locked the date.\n\nDate: ${dateVal}\nTime: ${timeVal}\nPlace: ${placeVal}\n\nPlanned at: ${new Date().toLocaleString()}`;
+
+    const sent = await notifyMe(subject, message, {
+      event: "yes_plus_date",
+      girl_name: firstName || "her",
+      date: dateVal,
+      time: timeVal,
+      place: placeVal
+    });
+
+    document.getElementById('dateScreen').style.display = 'none';
+    const done = document.getElementById('doneScreen');
+    done.style.display = 'block';
+    document.getElementById('doneText').innerHTML =
+      `${dateVal} at ${timeVal}<br><b>${placeVal}</b><br><br>Can't wait, ${firstName}.`;
+    try { fireConfettiBig(); } catch(e) {}
+    if (!sent) {
+      console.warn("Email send failed — details logged. Check EmailJS keys + FormSubmit activation.");
+    }
+  });
+
+  document.getElementById('skipDateBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('skipDateBtn');
+    btn.textContent = "Skipping...";
+    btn.disabled = true;
+    const subject = `She said YES! ${firstName || ""} — skipped date planning`.trim();
+    const message = `${firstName || "She"} said YES but skipped date planning for now. (${new Date().toLocaleString()}). She wasn't interested in picking a date/place yet — follow up with her.`;
+    await notifyMe(subject, message, {
+      event: "yes_skipped_date",
+      girl_name: firstName || "her",
+      date: "skipped",
+      time: "skipped",
+      place: "skipped"
+    });
+    document.getElementById('dateScreen').style.display = 'none';
+    const done = document.getElementById('doneScreen');
+    done.style.display = 'block';
+    document.getElementById('doneText').innerHTML =
+      `No worries, ${firstName || "you"}.<br>We'll plan it later.`;
+    try { fireConfettiBig(); } catch(e) {}
+  });
+</script>
+</body>
+</html>
